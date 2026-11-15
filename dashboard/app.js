@@ -74,40 +74,79 @@
     if (age < 365) return 45;
     return 30;
   }
+  // The farm playbook, the same table lib/model.ts carries: one row per kind of protocol, in
+  // the order the old if-chain checked them, so the first row whose keywords appear in the
+  // lower-cased category wins. The action is a template with {name}, {capital} and {chain}
+  // filled in at run time; the weekly text is the qualifying action that keeps the farm alive.
+  // The page regenerates every farm plan from this table, so what it shows is what board.json
+  // carries, derived the same way from the same snapshot figures.
+  var PLAYBOOK = [
+    { keys: ['risk curator', 'curator', 'allocator', 'capital allocator'],
+      action: 'Deposit {capital} of USDC into a {name} vault on {chain} and keep the vault shares in the same wallet.',
+      weekly: 'Rebalance or top up the vault once a week, and vote on one vault proposal when one is open.' },
+    { keys: ['basis trading'],
+      action: 'Deposit {capital} of USDC into {name}\'s basis vault on {chain} and keep the position open through one funding cycle.',
+      weekly: 'Check the funding rate once a week and add or trim the vault position when it moves against you.' },
+    { keys: ['lend', 'cdp', 'collateral'],
+      action: 'Supply {capital} of USDC to {name} on {chain} and keep the position open.',
+      weekly: 'Borrow a small amount against the supply once a week, then repay it, so the wallet shows both sides.' },
+    { keys: ['dex', 'yield', 'leveraged farm'],
+      action: 'Provide {capital} of liquidity to {name}\'s main pool on {chain} and keep the position open.',
+      weekly: 'Swap a small amount through the pool once a week and claim any fees the position earned.' },
+    { keys: ['bridge'],
+      action: 'Bridge {capital} of USDC to {chain} through {name} and use the bridged funds in its app.',
+      weekly: 'Bridge a small amount once a week, alternating direction when the route allows it.' },
+    { keys: ['staking', 'restak'],
+      action: 'Stake {capital} of the chain\'s staking asset through {name} and keep the receipt.',
+      weekly: 'Claim or restake the staking rewards once a week instead of letting them sit.' },
+    { keys: ['perpetual', 'derivative', 'options'],
+      action: 'Deposit {capital} of USDC as margin on {name} and open one small hedge.',
+      weekly: 'Open and close one small hedge a week, keeping the margin deposit in place.' },
+    { keys: ['prediction'],
+      action: 'Fund {capital} and place one market position on {name}.',
+      weekly: 'Settle one market a week and place a fresh position with the proceeds.' },
+    { keys: ['stable'],
+      action: 'Mint or deposit {capital} of the stable asset through {name} on {chain}.',
+      weekly: 'Mint and redeem a small amount of the stable asset once a week.' },
+    { keys: ['rwa'],
+      action: 'Mint {capital} of the protocol\'s yield asset on {chain} and hold it.',
+      weekly: 'Claim the yield the asset accrued once a week and keep the principal in place.' },
+    { keys: ['insurance'],
+      action: 'Buy {capital} of cover from {name} on {chain} and keep the policy.',
+      weekly: 'Make one qualifying action each week, such as a deposit, a borrow, a swap or a vote.' },
+    { keys: ['chain'],
+      action: 'Bridge {capital} of USDC to {name}\'s chain and use one of its native apps for a week.',
+      weekly: 'Use one native app on the chain each week, such as a swap or a lend, from the same wallet.' },
+    { keys: ['payment', 'card'],
+      action: 'Spend {capital} through {name} on {chain} and keep the receipts in the same wallet.',
+      weekly: 'Make one card or payment transaction a week through the protocol.' },
+    { keys: ['privacy'],
+      action: 'Use {capital} through {name}\'s private pool on {chain} and keep the position open.',
+      weekly: 'Make one qualifying action each week, such as a deposit, a borrow, a swap or a vote.' }
+  ];
+  var PLAYBOOK_DEFAULT = {
+    keys: [],
+    action: 'Deposit {capital} of USDC into {name} on {chain} and keep the position open.',
+    weekly: 'Make one qualifying action each week, such as a deposit, a borrow, a swap or a vote.'
+  };
+  function playbookRowFor(category) {
+    var c = (category || '').toLowerCase();
+    for (var i = 0; i < PLAYBOOK.length; i++) {
+      var row = PLAYBOOK[i];
+      for (var j = 0; j < row.keys.length; j++) {
+        if (c.indexOf(row.keys[j]) >= 0) return row;
+      }
+    }
+    return PLAYBOOK_DEFAULT;
+  }
+  function fill(template, p, capital, chain) {
+    return template.split('{name}').join(p.name).split('{capital}').join('$' + capital).split('{chain}').join(chain);
+  }
   function actionFor(p, capital, chain) {
-    var c = (p.category || '').toLowerCase();
-    var name = p.name;
-    if (c.indexOf('risk curator') >= 0 || c.indexOf('curator') >= 0 || c.indexOf('allocator') >= 0 || c.indexOf('capital allocator') >= 0) return 'Deposit $' + capital + ' of USDC into a ' + name + ' vault on ' + chain + ' and keep the vault shares in the same wallet.';
-    if (c.indexOf('basis trading') >= 0) return 'Deposit $' + capital + ' of USDC into ' + name + "'s basis vault on " + chain + ' and keep the position open through one funding cycle.';
-    if (c.indexOf('lend') >= 0 || c.indexOf('cdp') >= 0 || c.indexOf('collateral') >= 0) return 'Supply $' + capital + ' of USDC to ' + name + ' on ' + chain + ' and keep the position open.';
-    if (c.indexOf('dex') >= 0 || c.indexOf('yield') >= 0 || c.indexOf('leveraged farm') >= 0) return 'Provide $' + capital + ' of liquidity to ' + name + "'s main pool on " + chain + ' and keep the position open.';
-    if (c.indexOf('bridge') >= 0) return 'Bridge $' + capital + ' of USDC to ' + chain + ' through ' + name + ' and use the bridged funds in its app.';
-    if (c.indexOf('staking') >= 0 || c.indexOf('restak') >= 0) return "Stake $" + capital + " of the chain's staking asset through " + name + ' and keep the receipt.';
-    if (c.indexOf('perpetual') >= 0 || c.indexOf('derivative') >= 0 || c.indexOf('options') >= 0) return 'Deposit $' + capital + ' of USDC as margin on ' + name + ' and open one small hedge.';
-    if (c.indexOf('prediction') >= 0) return 'Fund $' + capital + ' and place one market position on ' + name + '.';
-    if (c.indexOf('stable') >= 0) return 'Mint or deposit $' + capital + ' of the stable asset through ' + name + ' on ' + chain + '.';
-    if (c.indexOf('rwa') >= 0) return "Mint $" + capital + " of the protocol's yield asset on " + chain + ' and hold it.';
-    if (c.indexOf('insurance') >= 0) return 'Buy $' + capital + ' of cover from ' + name + ' on ' + chain + ' and keep the policy.';
-    if (c.indexOf('chain') >= 0) return 'Bridge $' + capital + " of USDC to " + name + "'s chain and use one of its native apps for a week.";
-    if (c.indexOf('payment') >= 0 || c.indexOf('card') >= 0) return 'Spend $' + capital + ' through ' + name + ' on ' + chain + ' and keep the receipts in the same wallet.';
-    if (c.indexOf('privacy') >= 0) return 'Use $' + capital + " through " + name + "'s private pool on " + chain + ' and keep the position open.';
-    return 'Deposit $' + capital + ' of USDC into ' + name + ' on ' + chain + ' and keep the position open.';
+    return fill(playbookRowFor(p.category).action, p, capital, chain);
   }
   function weeklyActionFor(p) {
-    var c = (p.category || '').toLowerCase();
-    if (c.indexOf('risk curator') >= 0 || c.indexOf('curator') >= 0 || c.indexOf('allocator') >= 0 || c.indexOf('capital allocator') >= 0) return 'Rebalance or top up the vault once a week, and vote on one vault proposal when one is open.';
-    if (c.indexOf('basis trading') >= 0) return 'Check the funding rate once a week and add or trim the vault position when it moves against you.';
-    if (c.indexOf('lend') >= 0 || c.indexOf('cdp') >= 0 || c.indexOf('collateral') >= 0) return 'Borrow a small amount against the supply once a week, then repay it, so the wallet shows both sides.';
-    if (c.indexOf('dex') >= 0 || c.indexOf('yield') >= 0 || c.indexOf('leveraged farm') >= 0) return 'Swap a small amount through the pool once a week and claim any fees the position earned.';
-    if (c.indexOf('bridge') >= 0) return 'Bridge a small amount once a week, alternating direction when the route allows it.';
-    if (c.indexOf('staking') >= 0 || c.indexOf('restak') >= 0) return 'Claim or restake the staking rewards once a week instead of letting them sit.';
-    if (c.indexOf('perpetual') >= 0 || c.indexOf('derivative') >= 0 || c.indexOf('options') >= 0) return 'Open and close one small hedge a week, keeping the margin deposit in place.';
-    if (c.indexOf('prediction') >= 0) return 'Settle one market a week and place a fresh position with the proceeds.';
-    if (c.indexOf('stable') >= 0) return 'Mint and redeem a small amount of the stable asset once a week.';
-    if (c.indexOf('rwa') >= 0) return 'Claim the yield the asset accrued once a week and keep the principal in place.';
-    if (c.indexOf('chain') >= 0) return 'Use one native app on the chain each week, such as a swap or a lend, from the same wallet.';
-    if (c.indexOf('payment') >= 0 || c.indexOf('card') >= 0) return 'Make one card or payment transaction a week through the protocol.';
-    return 'Make one qualifying action each week, such as a deposit, a borrow, a swap or a vote.';
+    return playbookRowFor(p.category).weekly;
   }
   function stepText(step) {
     var s = step.text + ' Cost: ' + step.cost + '. Time: ' + step.time + '.';

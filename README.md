@@ -69,6 +69,7 @@ board, and copies `dashboard/` and `screenshots/` into the output directory.
 ```
 main.ts                  the entrypoint: snapshot in, board + dashboard + dossier out
 lib/model.ts             radar-2: calibration, implied value, board, farm plans
+docs/MODEL.md            the model, worked: formula, calibration, farm plans
 vendor/makefun-board.ts  make.fun's dossier library, as shipped in the kit
 dashboard/               index.html, app.css, app.js — the static page, no network
 screenshots/             1-board.png, 2-detail.png, 3-filtered.png
